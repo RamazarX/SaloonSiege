@@ -1,12 +1,12 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.AI;
 
 public class MinionAI : MonoBehaviour
 {
     public Transform targetBase;
     public float attackDamage = 10f;
-    public float attackRange = 2.5f;
-    public float aggroRadius = 5f;
+    public float attackRange = 8f;
+    public float aggroRadius = 15f;
     public float attackCooldown = 1f;
     public GameObject bulletPrefab;
     public Transform firePoint;
@@ -30,27 +30,20 @@ public class MinionAI : MonoBehaviour
 
     void Update()
     {
-
-        if (currentTarget == null)
-        {
-            FindClosestEnemy();
-        }
-
-
+        FindClosestEnemy();
         if (currentTarget != null)
         {
-            float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
-
-            if (distanceToTarget <= attackRange)
+            float distance = Vector3.Distance(transform.position, currentTarget.position);
+            if (distance <= attackRange)
             {
-
                 agent.isStopped = true;
-
-                Vector3 direction = (currentTarget.position - transform.position).normalized;
-                direction.y = 0; 
-                if (direction != Vector3.zero)
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), Time.deltaTime * 10f);
-
+                agent.ResetPath();
+                Vector3 lookDir = currentTarget.position - transform.position;
+                lookDir.y = 0;
+                if (lookDir != Vector3.zero)
+                {
+                    transform.rotation = Quaternion.LookRotation(lookDir);
+                }
                 if (Time.time >= nextAttackTime)
                 {
                     AttackTarget(currentTarget.gameObject);
@@ -63,29 +56,35 @@ public class MinionAI : MonoBehaviour
                 agent.SetDestination(currentTarget.position);
             }
         }
-        else
-        {
-            if (targetBase != null)
-            {
-                agent.isStopped = false;
-                agent.SetDestination(targetBase.position);
-            }
-        }
     }
 
     void FindClosestEnemy()
     {
         Collider[] hitColliders = Physics.OverlapSphere(transform.position, aggroRadius);
-        float closestDistance = Mathf.Infinity;
+
         Transform bestTarget = null;
+        int highestPriority = -1;
+        float closestDistance = Mathf.Infinity;
 
         foreach (Collider hit in hitColliders)
         {
             if (hit.CompareTag(enemyTag))
             {
+                int priority = 0;
+                if (hit.GetComponent<MinionAI>() != null)
+                    priority = 4;
+                else if (hit.GetComponent<HealthManager>() != null && hit.GetComponent<HealthManager>().isBase)
+                    priority = 3;
+                else if (hit.GetComponent<CapturePoint>() != null)
+                    priority = 2;
+                else if (hit.GetComponent<HeroControll>() != null)
+                    priority = 1;
+
                 float distance = Vector3.Distance(transform.position, hit.transform.position);
-                if (distance < closestDistance)
+
+                if (priority > highestPriority || (priority == highestPriority && distance < closestDistance))
                 {
+                    highestPriority = priority;
                     closestDistance = distance;
                     bestTarget = hit.transform;
                 }
@@ -95,10 +94,7 @@ public class MinionAI : MonoBehaviour
         currentTarget = bestTarget;
         if (currentTarget == null && targetBase != null)
         {
-            if (Vector3.Distance(transform.position, targetBase.position) <= attackRange)
-            {
-                currentTarget = targetBase;
-            }
+            currentTarget = targetBase;
         }
     }
 

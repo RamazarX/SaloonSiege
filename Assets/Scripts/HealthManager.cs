@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class HealthManager : MonoBehaviour
@@ -7,7 +7,6 @@ public class HealthManager : MonoBehaviour
     private float currentHealth;
 
     public bool isBase = false;
-    public GameObject gameOverPanel;
 
     void Start()
     {
@@ -17,33 +16,45 @@ public class HealthManager : MonoBehaviour
     public void TakeDamage(float damage)
     {
         currentHealth -= damage;
-        Debug.Log(gameObject.name + " получил урон. Здоровье: " + currentHealth);
+        Debug.Log(gameObject.name + " РїРѕР»СѓС‡РёР» СѓСЂРѕРЅ. Р—РґРѕСЂРѕРІСЊРµ: " + currentHealth);
 
         if (currentHealth <= 0)
         {
-            Die();
+            if (isBase)
+            {
+                bool isVictory = !gameObject.CompareTag("TeamAlly");
+                GameManager.instance.EndGame(isVictory);
+            }
+            else if (GetComponent<HeroControll>() != null)
+            {
+                GameManager.instance.AddHeroDeath();
+                GetComponent<HeroControll>().DieAndRespawn();
+            }
+            else
+            {
+                if (gameObject.CompareTag("TeamEnemy"))
+                {
+                    GameManager.instance.AddKill();
+                }
+                Destroy(gameObject);
+            }
         }
     }
-
-    void Die()
+    public void Heal(float amount)
     {
-        if (isBase)
+        currentHealth += amount;
+        if (currentHealth > maxHealth)
         {
-            Debug.Log("База уничтожена!");
-            if (gameOverPanel != null)
-            {
-                gameOverPanel.SetActive(true);
-            }
-            Time.timeScale = 0f;
-        }
-        else
-        {
-            Destroy(gameObject);
+            currentHealth = maxHealth;
         }
     }
     public void RestartGame()
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+    public float GetCurrentHealth()
+    {
+        return currentHealth;
     }
 }

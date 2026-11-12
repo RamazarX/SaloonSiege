@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class HeroControll : MonoBehaviour
@@ -10,6 +10,7 @@ public class HeroControll : MonoBehaviour
     public GameObject bulletPrefab;
     public Transform firePoint;
     public float shootCooldown = 0.5f;
+    public float autoAimRadius = 10f;
     private float nextShootTime = 0f;
     private Rigidbody rb;
     private Vector2 moveInput;
@@ -17,6 +18,8 @@ public class HeroControll : MonoBehaviour
     private float dashEndTime;
     private Vector3 dashDirection;
     private float nextDashTime = 0f;
+    public Transform respawnPoint;
+    public float respawnTime = 5f;
 
     void Start()
     {
@@ -70,7 +73,31 @@ public class HeroControll : MonoBehaviour
         if (Time.time >= nextShootTime && bulletPrefab != null && firePoint != null)
         {
             nextShootTime = Time.time + shootCooldown;
-            GameObject bulletObj = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
+            Collider[] hits = Physics.OverlapSphere(transform.position, autoAimRadius);
+            Transform closestEnemy = null;
+            float minDistance = Mathf.Infinity;
+
+            foreach (Collider hit in hits)
+            {
+                if (hit.CompareTag("TeamEnemy"))
+                {
+                    float dist = Vector3.Distance(transform.position, hit.transform.position);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        closestEnemy = hit.transform;
+                    }
+                }
+            }
+            Vector3 shootDirection = firePoint.forward;
+
+            if (closestEnemy != null)
+            {
+                Vector3 enemyCenter = closestEnemy.position + Vector3.up * 0.5f;
+                shootDirection = (enemyCenter - firePoint.position).normalized;
+                transform.rotation = Quaternion.LookRotation(new Vector3(shootDirection.x, 0, shootDirection.z));
+            }
+            GameObject bulletObj = Instantiate(bulletPrefab, firePoint.position, Quaternion.LookRotation(shootDirection));
             Bullet bullet = bulletObj.GetComponent<Bullet>();
 
             if (bullet != null)
@@ -79,5 +106,38 @@ public class HeroControll : MonoBehaviour
                 bullet.damage = 25f;
             }
         }
+    }
+
+    public void DieAndRespawn()
+    {
+        StartCoroutine(RespawnRoutine());
+    }
+
+    private System.Collections.IEnumerator RespawnRoutine()
+    {
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+        }
+        GetComponent<Collider>().enabled = false;
+        foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+        Canvas healthUI = GetComponentInChildren<Canvas>();
+        if (healthUI != null) healthUI.enabled = false;
+        yield return new WaitForSeconds(respawnTime);
+        if (respawnPoint != null) transform.position = respawnPoint.position;
+        HealthManager hm = GetComponent<HealthManager>();
+        if (hm != null) hm.Heal(hm.maxHealth);
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.linearVelocity = Vector3.zero;
+        }
+        GetComponent<Collider>().enabled = true;
+        foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = true;
+        if (healthUI != null) healthUI.enabled = true;
     }
 }

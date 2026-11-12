@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 public class Bullet : MonoBehaviour
 {
@@ -15,7 +15,6 @@ public class Bullet : MonoBehaviour
 
     void Update()
     {
-        // Летим вперед по локальной оси Z
         transform.Translate(Vector3.forward * speed * Time.deltaTime);
     }
 
